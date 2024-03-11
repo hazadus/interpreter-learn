@@ -5,6 +5,10 @@ Basic interpreter of expressions like "X+Y", where X and Y – single digits.
 from enum import Enum
 
 
+class ParseError(Exception):
+    pass
+
+
 class Token:
     class Type(str, Enum):
         INTEGER = "INTEGER"
@@ -21,12 +25,12 @@ class Token:
 
 class Interpreter:
     def __init__(self, code: str):
-        self.code = code  # code to interpret
+        self.code = code.replace(" ", "")  # code to interpret
         self.pos = 0  # index into self.code
         self.current_token: Token | None = None
 
     def _error(self):
-        raise Exception(
+        raise ParseError(
             f"Error parsing code at symbol {self.pos+1}: '{self.code[self.pos]}'"
         )
 
@@ -94,7 +98,9 @@ if __name__ == "__main__":
         try:
             if not (expression := input(">> ")):
                 continue
-        except EOFError:
+            print(Interpreter(expression).expr())
+        except ParseError as ex:
+            print(ex)
+        except KeyboardInterrupt:
+            print("\nProgram interrupted by user.")
             break
-
-        print(Interpreter(expression).expr())
