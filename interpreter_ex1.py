@@ -1,5 +1,5 @@
 """
-Basic interpreter of expressions like "X+Y", where X and Y – single digits.
+Basic interpreter of expressions like "X+Y", where X and Y – integers.
 """
 
 from enum import Enum
@@ -34,23 +34,34 @@ class Interpreter:
             f"Error parsing code at symbol {self.pos+1}: '{self.code[self.pos]}'"
         )
 
+    @property
+    def _eof(self):
+        return self.pos > len(self.code) - 1
+
     def _get_next_token(self) -> Token:
         """
         Lexical analyzer (aka lexer, scanner or tokenizer).
         Breaks sentence into tokens.
         :return:
         """
-        code = self.code
-
-        if self.pos > len(code) - 1:
+        if self._eof:
             return Token(Token.Type.EOF, None)
 
-        current_char = code[self.pos]
+        current_char = self.code[self.pos]
 
-        if current_char.isdigit():
+        # Try to parse integer
+        number = ""
+        while current_char.isdigit():
+            number += current_char
             self.pos += 1
-            return Token(Token.Type.INTEGER, int(current_char))
+            if self._eof:
+                break
+            current_char = self.code[self.pos]
 
+        if number:
+            return Token(Token.Type.INTEGER, int(number))
+
+        # Try to parse operation
         if current_char == "+":
             self.pos += 1
             return Token(Token.Type.PLUS, current_char)
@@ -69,7 +80,7 @@ class Interpreter:
 
     def expr(self) -> int:
         """
-        Try to parse and evaluate the only expression we know: "X+Y", where X and Y are single digits.
+        Try to parse and evaluate the only expression we know: "X+Y", where X and Y are integers.
         Expected structure to find: INTEGER -> PLUS -> INTEGER
         :return: result of parsed expression
         """
