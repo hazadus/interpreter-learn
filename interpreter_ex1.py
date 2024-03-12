@@ -19,6 +19,16 @@ class Token:
         DIVIDE = "DIVIDE"
         EOF = "EOF"
 
+        @staticmethod
+        def from_operation(char: str) -> "Token.Type":
+            symbol_to_type = {
+                "+": Token.Type.PLUS,
+                "-": Token.Type.MINUS,
+                "*": Token.Type.MULTIPLY,
+                "/": Token.Type.DIVIDE,
+            }
+            return symbol_to_type[char]
+
     def __init__(self, type_: Type, value):
         self.type_ = type_
         self.value = value
@@ -29,18 +39,44 @@ class Token:
 
 class Interpreter:
     def __init__(self, code: str):
-        self.code = code.replace(" ", "")  # code to interpret
+        self.code = code  # code to interpret
         self.pos = 0  # index into self.code
         self.current_token: Token | None = None
+        self.current_char = self.code[self.pos]
 
     def _error(self):
         raise ParseError(
+            " " * (self.pos + 3) + "^\n"
             f"Error parsing code at symbol {self.pos+1}: '{self.code[self.pos]}'"
         )
 
     @property
-    def _eof(self):
+    def _eof(self) -> bool:
         return self.pos > len(self.code) - 1
+
+    def _advance(self) -> None:
+        """Advance the `self.pos` pointer and set `self.current_char` property."""
+        self.pos += 1
+        if self._eof:
+            self.current_char = None  # Indicates EOF
+        else:
+            self.current_char = self.code[self.pos]
+
+    def _skip_whitespace(self):
+        while self.current_char is not None and self.current_char.isspace():
+            self._advance()
+
+    def _integer(self) -> int:
+        """Return a (multidigit) integer consumed from the code. Advances `pos` through the code."""
+        number = ""
+        while self.current_char is not None and self.current_char.isdigit():
+            number += self.current_char
+            self._advance()
+        return int(number)
+
+    def _is_operation(self) -> bool:
+        """Return true if current char represents an operation, i.e. '+-*/'."""
+        return self.current_char in ["+", "-", "*", "/"]
 
     def _get_next_token(self) -> Token:
         """
@@ -48,35 +84,22 @@ class Interpreter:
         Breaks sentence into tokens.
         :return:
         """
-        if self._eof:
-            return Token(Token.Type.EOF, None)
+        while self.current_char is not None:
+            if self.current_char.isspace():
+                self._skip_whitespace()
+                continue
 
-        current_char = self.code[self.pos]
+            if self.current_char.isdigit():
+                return Token(Token.Type.INTEGER, self._integer())
 
-        # Try to parse integer
-        number = ""
-        while current_char.isdigit():
-            number += current_char
-            self.pos += 1
-            if self._eof:
-                break
-            current_char = self.code[self.pos]
+            # Try to parse operation
+            if self._is_operation():
+                operation = self.current_char
+                self._advance()
+                return Token(Token.Type.from_operation(operation), operation)
 
-        if number:
-            return Token(Token.Type.INTEGER, int(number))
-
-        # Try to parse operation
-        if current_char in ["+", "-", "*", "/"]:
-            self.pos += 1
-            symbol_to_type = {
-                "+": Token.Type.PLUS,
-                "-": Token.Type.MINUS,
-                "*": Token.Type.MULTIPLY,
-                "/": Token.Type.DIVIDE,
-            }
-            return Token(symbol_to_type[current_char], current_char)
-
-        self._error()
+            self._error()
+        return Token(Token.Type.EOF, None)
 
     def _eat(self, token_type: Token.Type | list[Token.Type]):
         """
